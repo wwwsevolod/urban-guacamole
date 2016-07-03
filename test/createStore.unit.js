@@ -41,7 +41,7 @@ describe('createStore', () => {
             expect(param1).to.equal(1);
 
             store.commit((cursor) => {
-                cursor.get('asd').get('wtf').set(456);
+                cursor.get('asd').get('wtf').replaceIt(456);
             });
         });
 
@@ -56,7 +56,7 @@ describe('createStore', () => {
         });
 
         const testInplaceTransaction = Transaction.create('test', (store) => {
-            store.getCursor().get('asd').get('wtf').set(888);
+            store.getCursor().get('asd').get('wtf').replaceIt(888);
         });
 
         store.runTransaction(testInplaceTransaction.start());
@@ -68,7 +68,7 @@ describe('createStore', () => {
         });
 
         const testFailingAsyncTransaction = Transaction.create('test', (store) => {
-            store.getCursor().get('asd').get('wtf').set(777);
+            store.getCursor().get('asd').get('wtf').replaceIt(777);
 
             return Promise.resolve();
         });

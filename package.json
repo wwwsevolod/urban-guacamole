@@ -64,5 +64,8 @@
     "postcss-cli": "^2.4.0",
     "rimraf": "^2.5.0",
     "webpack": "^1.12.12"
+  },
+  "dependencies": {
+    "data-cursor": "^0.5.1"
   }
 }

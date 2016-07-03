@@ -1,4 +1,6 @@
-import getCursor from 'getCursor';
+import {getCursor} from 'data-cursor';
+
+import createSubscriber from './createSubscriber';
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
@@ -6,37 +8,55 @@ export default function createStore(initialState) {
     let state = initialState;
     initialState = null;
 
-    const subscribers = [];
+    const subscriber = createSubscriber();
 
     const store = {
         getState() {
             return state;
         },
 
-        change(newState) {
+        change(newState, changes = []) {
             state = newState;
 
-            subscribers.forEach((subscriber) => subscriber(state));
+            subscriber.emitChange(changes, state);
 
             return store;
         },
 
-        subscribe(cb, paths = null) {
-            let subscribed = true;
-            subscribers.push(cb);
+        subscribe(paths, cb) {
+            if (!cb && typeof paths === 'function') {
+                cb = paths;
+                paths = [];
+            }
 
-            return function unsubscribe() {
+            if (!paths || !paths.length) {
+                paths = [];
+            }
+
+            if (typeof cb !== 'function') {
+                throw new Error('Change handler is not a function');
+            }
+
+            let subscribed = true;
+
+            const finalCb = (...args) => {
+                if (!subscribed) {
+                    return;
+                }
+
+                cb(...args);
+            };
+
+            const unsubscribe = subscriber.subscribe(paths, finalCb);
+
+            return () => {
                 if (!subscribed) {
                     return;
                 }
                 
                 subscribed = false;
 
-                const index = subscribers.indexOf(cb);
-
-                if (index !== -1) {
-                    subscribers.splice(index, 1);
-                }
+                unsubscribe();
             };
         },
 
@@ -45,6 +65,7 @@ export default function createStore(initialState) {
 
             let currentState = state;
             let performedCursorNotInCommit = false;
+            const changes = [];
 
             const transactionStore = {
                 getState() {
@@ -69,9 +90,17 @@ export default function createStore(initialState) {
                         performedCursorNotInCommit = true;
                     }
 
-                    return getCursor(currentState, (_, newState) => {
+                    return getCursor(currentState, undefined, (
+                        newState, prevState, operationPath, operation, args
+                    ) => {
                         currentState = newState;
-                    }, '', params);
+
+                        changes.push({
+                            path: operationPath.slice().reverse(),
+                            operation,
+                            args
+                        });
+                    }, params);
                 },
 
                 runTransaction(...args) {
@@ -98,7 +127,7 @@ export default function createStore(initialState) {
                 } else {
                     transactionDescriptor.isClosed = true;
                     if (currentState !== state) {
-                        store.change(currentState);
+                        store.change(currentState, changes);
                     }
 
                     return result;
